@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Snake Game with Voice Control</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"></script>
+  <script src="https://unpkg.com/ml5@latest/dist/ml5.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-image: url("VoiceSnakeGame.png");
+      background-size: cover;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+    }
+
+    #game-container {
+      text-align: center;
+      margin: auto;
+    }
+
+    #canvas-container {
+      display: inline-block;
+      text-align: left; /* Reset text-align for p5.js canvas */
+      margin-top: 10px;
+    }
+
+    #controls {
+      text-align: center;
+      margin-top: 5px;
+    }
+
+
+    #score {
+      font-size: 48px;
+      font-family: 'Barlow', sans-serif;
+      font-weight: bold;
+    }
+
+    /* #symbol{
+      font-size: 32px;
+      font-family: 'Barlow', sans-serif;
+      font-weight: bold;
+    } */
+
+    button {
+      border-radius: 12px;
+      padding: 10px;
+      margin: 10px;
+      cursor: pointer;
+      font-family:'Barlow', sans-serif;
+    }
+  </style>
+</head>
+
+<body>
+  
+  <audio id="eatSound" src="eat.mp3"></audio>
+  <audio id="starsts" src="starsts.wav"></audio>
+  <audio id="gameOver" src="gameoverr.mp3"></audio>
+
+  <div id="game-container">
+    <div id="canvas-container"></div>
+    <div id="controls">
+      <div id="score">Score = 0</div>
+      <button id="startButton" onclick="startClassification()">Start Game</button>
+      <!-- <button id="startButton" onclick="resetGame()">Reset Game</button> -->
+      <button id="resetButton" onclick="resetGame()">Reset Game</button>
+    </div>
+  </div>
+
+  <script>
+    let classifier;
+    let label = 'listening...';
+    let soundModel = 'https://teachablemachine.withgoogle.com/models/lbt9AqlM4/';
+    let startGame = false;
+
+    // Include this line in your p5.js setup function
+    
+    // let eatSound = new Audio('eat,mp3');
+
+    let numSegments = 10;
+    let direction = 'right';
+    const xStart = 0;
+    const yStart = 250;
+    const diff = 5;
+    let foodSize = 20;
+
+    let xCor = [];
+    let yCor = [];
+    let xFruit = 0;
+    let yFruit = 0;
+    let scoreElem;
+    //let symbolElem;
+    let score = 0;
+    let flashCount = 0;
+
+    
+    function preload() {
+      classifier = ml5.soundClassifier(soundModel + 'model.json');
+    }
+
+    function setup() {
+      let cnv = createCanvas(700, 500);
+      cnv.parent('canvas-container');
+      frameRate(25);
+      stroke(0, 200, 0);
+      strokeWeight(10);
+
+      updateFruitCoordinates();
+      for (let i = 0; i < numSegments; i++) {
+        xCor.push(xStart + i * diff);
+        yCor.push(yStart);
+      }
+      scoreElem = select('#score');
+      //symbolElem = select('#symbol');
+      
+    }
+
+    function startClassification() {
+      resetGame();
+      classifier.classify(gotResult);
+      startGame = true;
+      document.getElementById("starsts").play();
+      loop();
+
+    }
+
+    function draw() {
+      if (!startGame) {
+        return;
+      }
+
+      background(0);
+      for (let i = 0; i < numSegments - 1; i++) {
+        line(xCor[i], yCor[i], xCor[i + 1], yCor[i + 1]);
+      }
+      updateSnakeCoordinates();
+      checkGameStatus();
+      checkForFruit();
+      stroke(0, 200, 0);
+      strokeWeight(10);
+      // ... drawing the snake
+      
+      // Remove the stroke for the text
+      noStroke();
+      
+      // Draw the label text on the left side of the canvas
+      fill(255);  // Text color (white)
+      textSize(24);  // Font size
+      text(label, 10, 30);  // Position the text at (10, 30)
+      
+      // Reapply the stroke for the fruit
+      stroke(0, 255, 0);
+      strokeWeight(10);
+      // ... drawing the fruit
+      
+}
+    
+
+    function gotResult(error, results) {
+      if (error) {
+        console.error(error);
+        return;
+      }
+      label = results[0].label;
+      switch (label) {
+        case 'Up':
+          if (direction !== 'down') {
+            direction = 'up';
+            
+
+          }
+          break;
+        case 'Down':
+          if (direction !== 'up') {
+            direction = 'down';
+            
+          }
+          break;
+        case 'Left':
+          if (direction !== 'right') {
+            direction = 'left';
+            
+          }
+          break;
+
+        case 'Right':
+          if (direction !== 'left') {
+            direction = 'right';
+            
+          }
+          break;
+      }
+    }
+
+    function updateSnakeCoordinates() {
+      for (let i = 0; i < numSegments - 1; i++) {
+        xCor[i] = xCor[i + 1];
+        yCor[i] = yCor[i + 1];
+      }
+      switch (direction) {
+        case 'right':
+          xCor[numSegments - 1] = xCor[numSegments - 2] + diff;
+          yCor[numSegments - 1] = yCor[numSegments - 2];
+          break;
+        case 'up':
+          xCor[numSegments - 1] = xCor[numSegments - 2];
+          yCor[numSegments - 1] = yCor[numSegments - 2] - diff;
+          break;
+        case 'left':
+          xCor[numSegments - 1] = xCor[numSegments - 2] - diff;
+          yCor[numSegments - 1] = yCor[numSegments - 2];
+          break;
+        case 'down':
+          xCor[numSegments - 1] = xCor[numSegments - 2];
+          yCor[numSegments - 1] = yCor[numSegments - 2] + diff;
+          break;
+      }
+    }
+
+    function checkGameStatus() {
+      // Add your checkSnakeCollision() logic here
+      if (xCor[xCor.length - 1] > width || xCor[xCor.length - 1] < 0 || yCor[yCor.length - 1] > height || yCor[yCor.length - 1] < 0) {
+      noLoop();
+      const scoreVal = score;
+      scoreElem.html('Game ended! Your score was : ' + scoreVal);
+      background(255, 0, 0);
+      document.getElementById("gameOver").play();
+
+      }
+    }
+    function checkForFruit() {
+      
+      fill(255);  // Food color; set to white to make it visible
+      ellipse(xFruit, yFruit, foodSize, foodSize);
+      let d = dist(xCor[xCor.length - 1], yCor[yCor.length - 1], xFruit, yFruit);
+      if (d < foodSize) {
+      score++;  // Increment the score
+      scoreElem.html('Score = ' + score);
+      xCor.unshift(xCor[0]);
+      yCor.unshift(yCor[0]);
+      numSegments++;
+      updateFruitCoordinates();
+        // thunderFlash();
+        document.getElementById("eatSound").play();
+}
+    }
+
+
+    function updateFruitCoordinates() {
+      xFruit = floor(random(10, (width - 100) / 10)) * 10;
+      yFruit = floor(random(10, (height - 100) / 10)) * 10;
+    }
+
+    function resetGame() {
+      startGame = false;
+      noLoop();
+      numSegments = 10;
+      direction = 'right';
+      xCor = [];
+      yCor = [];
+
+      for (let i = 0; i < numSegments; i++) {
+        xCor.push(xStart + i * diff);
+        yCor.push(yStart);
+      }
+
+      score=0;
+      updateFruitCoordinates();
+      startGame = true;
+      document.getElementById("starsts").play();
+      loop();
+    }
+  </script>
+
+
+</body>
+
+</html>
